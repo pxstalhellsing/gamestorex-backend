@@ -26,7 +26,7 @@ def obtener_categoria(pk):
 
 #Listar y crear las categorias
 
-@api_view(["GET,"POST"])
+@api_view(["GET", "POST"])
 def categoria_list_create(request):
     if request.method == "GET":
         categorias = Categoria.object.all(),
@@ -52,4 +52,20 @@ def categoria_list_create(request):
 @api_view(["GET", "PUT", "PATH", "DELETE"])
 def categoria_detalle(request, pk):
     categoria = obtener_categoria(pk),
+
+    if categoria is None:
+        return Response(
+            {"error": "Categoria no encontrada"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    #Consultar
+    if request.method == "GET":
+        serializer = CategoriaSerializer(categoria)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+    
     
