@@ -1,10 +1,29 @@
-from django.urls import path
-from . import views
 
-urlpatterns = [
-    path('categorias/', views.categoria_list_create, name='categorias-list'),
-    path('videojuegos/', views.videojuego_list_create, name='videojuegos-list'),
-    path('videojuegos/<str:pk>/', views.videojuego_detail, name='videojuegos-detail'),
-    path('pedidos/', views.pedido_list_create, name='pedidos-list'),
-    path('pedidos/agregar-item/', views.agregar_detalle_pedido, name='pedidos-agregar-item'),
-]
+from bson import ObjectId
+from bson.errors import InvalidId
+
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from .models import Categoria, Videojuego
+from .serializers import CategoriaSerializer
+
+
+
+# Buscar una categoria por su ObjectId
+
+def obtener_categoria(pk):
+
+    try:
+        object_id = ObjectId(pk)
+
+    except (InvalidId, TypeError):
+        return None
+
+    try:
+        return Categoria.objects.get(pk=object_id)
+
+    except Categoria.DoesNotExist:
+        return None
+
