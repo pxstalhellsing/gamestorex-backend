@@ -17,15 +17,12 @@ def obtener_categoria(pk):
 
     try:
         object_id = ObjectId(pk)
+        return Caterogia.Objects.get(pk=object_id)
 
-    except (InvalidId, TypeError):
+    except (InvalidId, TypeError, Caterogia.DoesNotExist):
         return None
 
-    try:
-        return Categoria.objects.get(pk=object_id)
 
-    except Categoria.DoesNotExist:
-        return None
 
 #Listar y crear las categorias
 
@@ -51,3 +48,8 @@ def categoria_list_create(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
+
+@api_view(["GET", "PUT", "PATH", "DELETE"])
+def categoria_detalle(request, pk):
+    categoria = obtener_categoria(pk),
+    
