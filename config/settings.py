@@ -90,7 +90,7 @@ INSTALLED_APPS = [
 
     # Backend de MongoDB
     "django_mongodb_backend",
-    'api',
+    'api.apps.ApiConfig',
 
 ]
 

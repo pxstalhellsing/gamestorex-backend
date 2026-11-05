@@ -15,7 +15,4 @@ class MongoContentTypesConfig(ContentTypesConfig):
     default_auto_field = "django_mongodb_backend.fields.ObjectIdAutoField"
 
     
-class ApiConfig(AppConfig):
-    default_auto_field = 'django_mongodb_backend.fields.ObjectIdAutoField'
-    name = 'api'
 
