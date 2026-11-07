@@ -1,4 +1,4 @@
-
+from decimal import Decimal
 from bson import ObjectId
 from bson.errors import InvalidId
 
@@ -6,66 +6,141 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Categoria, Videojuego
-from .serializers import CategoriaSerializer
+from .models import (
+    Categoria,
+    Videojuego,
+    Pedido,
+    DetallePedido
+)
+from .serializers import (
+    CategoriaSerializer,
+    VideojuegoSerializer,
+    PedidoSerializer,
+    DetallePedidoSerializer
+)
 
 
 
-# Buscar una categoria por su ObjectId
+# Funciones auxilares
 
-def obtener_categoria(pk):
+def obtener_objeto(modelo, pk):
+   
 
     try:
-        object_id = ObjectId(pk)
-        return Caterogia.Objects.get(pk=object_id)
+        object_id = ObjectId(str(pk))
+    except (InvalidId, TypeError, ValueError):
+        return None
 
-    except (InvalidId, TypeError, Caterogia.DoesNotExist):
+    try:
+        return modelo.objects.get(pk=object_id)
+    except modelo.DoesNotExist:
         return None
 
 
+def calcular_subtotal(precio, cantidad):
+    return (precio * cantidad).quantize(
+        Decimal("0.01")
+    )
 
-#Listar y crear las categorias
+
+def recalcular_total(pedido):
+
+    total = Decimal("0.00")
+
+    for detalle in pedido.detalles.all():
+        total += detalle.subtotal
+
+    pedido.total = total
+    pedido.save(update_fields=["total"])
+
+
+
+#Categorias
 
 @api_view(["GET", "POST"])
-def categoria_list_create(request):
+def categoria_lista(request):
+
     if request.method == "GET":
-        categorias = Categoria.object.all(),
-        serializer = CategoriaSerializaer(
-            categorias, many=TRUE
+
+        categorias = Categoria.objects.all()
+
+        serializer = CategoriaSerializer(
+            categorias,
+            many=True
         )
+
         return Response(
             serializer.data,
             status=status.HTTP_200_OK
         )
-    if serializaer.is_valid():
-        categoria = serializer.save(),
+
+    serializer = CategoriaSerializer(data=request.data)
+
+    if serializer.is_valid():
+        categoria = serializer.save()
 
         return Response(
             CategoriaSerializer(categoria).data,
             status=status.HTTP_201_CREATED
         )
+
     return Response(
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
 
-@api_view(["GET", "PUT", "PATH", "DELETE"])
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
 def categoria_detalle(request, pk):
-    categoria = obtener_categoria(pk),
+
+    categoria = obtener_objeto(Categoria, pk)
 
     if categoria is None:
         return Response(
-            {"error": "Categoria no encontrada"},
+            {"error": "Categoría no encontrada."},
             status=status.HTTP_404_NOT_FOUND
         )
-    
-    #Consultar
+
     if request.method == "GET":
+
         serializer = CategoriaSerializer(categoria)
 
+        return Response(serializer.data)
+
+    if request.method in ["PUT", "PATCH"]:
+
+        serializer = CategoriaSerializer(
+            categoria,
+            data=request.data,
+            partial=(request.method == "PATCH")
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
         return Response(
-            serializer.data,
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if request.method == "DELETE":
+
+        if categoria.videojuegos.exists():
+            return Response(
+                {
+                    "error": (
+                        "No puedes eliminar una categoría "
+                        "que contiene videojuegos."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        categoria.delete()
+
+        return Response(
+            {"mensaje": "Categoría eliminada correctamente."},
             status=status.HTTP_200_OK
         )
-    
+
     

@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from decimal import Decimal
 from .models import Categoria, Videojuego, Pedido, DetallePedido
+from bson import ObjectId
+from bson.errors import InvalidId
 
 class CategoriaSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
