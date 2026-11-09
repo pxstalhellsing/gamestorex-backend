@@ -12,38 +12,56 @@ from .models import (
     Pedido,
     DetallePedido
 )
+
 from .serializers import (
     CategoriaSerializer,
     VideojuegoSerializer,
     PedidoSerializer,
-    DetallePedidoSerializer
+    PedidoCreateSerializer,
+    PedidoActualizarSerializer,
+    DetallePedidoSerializer,
+    DetallePedidoCreateSerializer,
+    DetallePedidoActualizarSerializer
 )
-
 
 
 # Funciones auxilares
 
 def obtener_objeto(modelo, pk):
-   
+    """
+    Busca un documento utilizando su ObjectId.
+    Si el identificador no existe o es inválido,
+    devuelve None.
+    """
 
     try:
         object_id = ObjectId(str(pk))
+
+        return modelo.objects.get(pk=object_id)
+
     except (InvalidId, TypeError, ValueError):
         return None
 
-    try:
-        return modelo.objects.get(pk=object_id)
     except modelo.DoesNotExist:
         return None
 
 
 def calcular_subtotal(precio, cantidad):
+    """
+    Calcula el subtotal de un videojuego
+    dentro de un pedido.
+    """
+
     return (precio * cantidad).quantize(
         Decimal("0.01")
     )
 
 
 def recalcular_total(pedido):
+    """
+    Recorre los detalles de un pedido
+    y vuelve a calcular su total.
+    """
 
     total = Decimal("0.00")
 
@@ -51,8 +69,29 @@ def recalcular_total(pedido):
         total += detalle.subtotal
 
     pedido.total = total
-    pedido.save(update_fields=["total"])
 
+    pedido.save(
+        update_fields=["total"]
+    )
+
+
+def reponer_stock(pedido):
+    """
+    Devuelve al inventario los videojuegos
+    que pertenecen a un pedido.
+    """
+
+    for detalle in pedido.detalles.all():
+
+        videojuego = Videojuego.objects.get(
+            pk=detalle.videojuego_id
+        )
+
+        videojuego.stock += detalle.cantidad
+
+        videojuego.save(
+            update_fields=["stock"]
+        )
 
 
 #Categorias
