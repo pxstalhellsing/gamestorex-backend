@@ -360,3 +360,131 @@ def pedido_lista(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
+
+    @api_view(["GET", "PATCH", "DELETE"])
+def pedido_detalle(request, pk):
+
+    pedido = obtener_objeto(Pedido, pk)
+
+    if pedido is None:
+
+        return Response(
+            {"error": "Pedido no encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+
+        serializer = PedidoSerializer(pedido)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    if request.method == "PATCH":
+
+        serializer = PedidoActualizarSerializer(
+            data=request.data,
+            partial=True
+        )
+
+        if not serializer.is_valid():
+
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        datos = serializer.validated_data
+
+        nuevo_estado = datos.get(
+            "estado",
+            pedido.estado
+        )
+
+        if pedido.estado == "CANCELADO" and nuevo_estado != "CANCELADO":
+
+            return Response(
+                {
+                    "error": (
+                        "Un pedido cancelado no puede "
+                        "volver a activarse."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        if nuevo_estado == "PAGADO" and pedido.estado != "PENDIENTE":
+
+            return Response(
+                {
+                    "error": (
+                        "Solo se pueden pagar pedidos pendientes."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        if (
+            pedido.estado != "PENDIENTE"
+            and (
+                "cliente_nombre" in datos
+                or "cliente_correo" in datos
+            )
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "Los datos del cliente solo se pueden "
+                        "modificar en pedidos pendientes."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        with transaction.atomic():
+
+            if (
+                nuevo_estado == "CANCELADO"
+                and pedido.estado != "CANCELADO"
+            ):
+
+                reponer_stock(pedido)
+
+            pedido.cliente_nombre = datos.get(
+                "cliente_nombre",
+                pedido.cliente_nombre
+            )
+
+            pedido.cliente_correo = datos.get(
+                "cliente_correo",
+                pedido.cliente_correo
+            )
+
+            pedido.estado = nuevo_estado
+
+            pedido.save()
+
+        return Response(
+            PedidoSerializer(pedido).data,
+            status=status.HTTP_200_OK
+        )
+
+    if request.method == "DELETE":
+
+        with transaction.atomic():
+
+            # Si el pedido no estaba cancelado,
+            # devolver los videojuegos al inventario.
+
+            if pedido.estado != "CANCELADO":
+
+                reponer_stock(pedido)
+
+            pedido.delete()
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
