@@ -191,14 +191,57 @@ def videojuego_lista(request):
 
         videojuegos = Videojuego.objects.all()
 
+        # Buscar por título.
+
+        buscar = request.query_params.get("buscar")
+
+        if buscar:
+            videojuegos = videojuegos.filter(
+                titulo__icontains=buscar
+            )
+
+        # Filtrar por plataforma.
+
+        plataforma = request.query_params.get("plataforma")
+
+        if plataforma:
+            videojuegos = videojuegos.filter(
+                plataforma__iexact=plataforma
+            )
+
+        # Filtrar por categoría mediante ObjectId.
+
+        categoria_id = request.query_params.get("categoria")
+
+        if categoria_id:
+
+            try:
+                categoria_object_id = ObjectId(categoria_id)
+
+            except (InvalidId, TypeError, ValueError):
+
+                return Response(
+                    {"error": "El ID de categoría no es válido."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            videojuegos = videojuegos.filter(
+                categoria_id=categoria_object_id
+            )
+
         serializer = VideojuegoSerializer(
             videojuegos,
             many=True
         )
 
-        return Response(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
 
-    serializer = VideojuegoSerializer(data=request.data)
+    serializer = VideojuegoSerializer(
+        data=request.data
+    )
 
     if serializer.is_valid():
 
@@ -213,59 +256,3 @@ def videojuego_lista(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
-
-
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
-def videojuego_detalle(request, pk):
-
-    videojuego = obtener_objeto(Videojuego, pk)
-
-    if videojuego is None:
-        return Response(
-            {"error": "Videojuego no encontrado."},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    if request.method == "GET":
-
-        serializer = VideojuegoSerializer(videojuego)
-
-        return Response(serializer.data)
-
-    if request.method in ["PUT", "PATCH"]:
-
-        serializer = VideojuegoSerializer(
-            videojuego,
-            data=request.data,
-            partial=(request.method == "PATCH")
-        )
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if request.method == "DELETE":
-
-        if videojuego.ventas.exists():
-            return Response(
-                {
-                    "error": (
-                        "No puedes eliminar un videojuego "
-                        "que tiene ventas registradas."
-                    )
-                },
-                status=status.HTTP_409_CONFLICT
-            )
-
-        videojuego.delete()
-
-        return Response(
-            {"mensaje": "Videojuego eliminado correctamente."},
-            status=status.HTTP_200_OK
-        )
-
