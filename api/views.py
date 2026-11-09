@@ -256,3 +256,68 @@ def videojuego_lista(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def videojuego_detalle(request, pk):
+
+    videojuego = obtener_objeto(Videojuego, pk)
+
+    if videojuego is None:
+
+        return Response(
+            {"error": "Videojuego no encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+
+        serializer = VideojuegoSerializer(videojuego)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    if request.method in ["PUT", "PATCH"]:
+
+        serializer = VideojuegoSerializer(
+            videojuego,
+            data=request.data,
+            partial=(request.method == "PATCH")
+        )
+
+        if serializer.is_valid():
+
+            serializer.save()
+
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if request.method == "DELETE":
+
+        # No eliminar videojuegos que tienen ventas registradas.
+
+        if videojuego.ventas.exists():
+
+            return Response(
+                {
+                    "error": (
+                        "No puedes eliminar este videojuego "
+                        "porque está registrado en pedidos."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        videojuego.delete()
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
