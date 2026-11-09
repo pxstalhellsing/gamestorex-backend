@@ -321,3 +321,42 @@ def videojuego_detalle(request, pk):
         return Response(
             status=status.HTTP_204_NO_CONTENT
         )
+
+# PEDIDOS
+
+@api_view(["GET", "POST"])
+def pedido_lista(request):
+
+    if request.method == "GET":
+
+        pedidos = Pedido.objects.all().order_by(
+            "-fecha_pedido"
+        )
+
+        serializer = PedidoSerializer(
+            pedidos,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    serializer = PedidoCreateSerializer(
+        data=request.data
+    )
+
+    if serializer.is_valid():
+
+        pedido = serializer.save()
+
+        return Response(
+            PedidoSerializer(pedido).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
