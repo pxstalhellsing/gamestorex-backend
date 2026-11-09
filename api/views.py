@@ -143,4 +143,90 @@ def categoria_detalle(request, pk):
             status=status.HTTP_200_OK
         )
 
-    
+#Videojuegos
+
+@api_view(["GET", "POST"])
+def videojuego_lista(request):
+
+    if request.method == "GET":
+
+        videojuegos = Videojuego.objects.all()
+
+        serializer = VideojuegoSerializer(
+            videojuegos,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    serializer = VideojuegoSerializer(data=request.data)
+
+    if serializer.is_valid():
+
+        videojuego = serializer.save()
+
+        return Response(
+            VideojuegoSerializer(videojuego).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def videojuego_detalle(request, pk):
+
+    videojuego = obtener_objeto(Videojuego, pk)
+
+    if videojuego is None:
+        return Response(
+            {"error": "Videojuego no encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+
+        serializer = VideojuegoSerializer(videojuego)
+
+        return Response(serializer.data)
+
+    if request.method in ["PUT", "PATCH"]:
+
+        serializer = VideojuegoSerializer(
+            videojuego,
+            data=request.data,
+            partial=(request.method == "PATCH")
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if request.method == "DELETE":
+
+        if videojuego.ventas.exists():
+            return Response(
+                {
+                    "error": (
+                        "No puedes eliminar un videojuego "
+                        "que tiene ventas registradas."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        videojuego.delete()
+
+        return Response(
+            {"mensaje": "Videojuego eliminado correctamente."},
+            status=status.HTTP_200_OK
+        )
+
