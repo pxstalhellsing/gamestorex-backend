@@ -599,3 +599,148 @@ def detalle_pedido_lista(request):
         DetallePedidoSerializer(detalle).data,
         status=status.HTTP_201_CREATED
     )
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def detalle_pedido_item(request, pk):
+
+    detalle = obtener_objeto(DetallePedido, pk)
+
+    if detalle is None:
+
+        return Response(
+            {"error": "Detalle de pedido no encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    pedido = detalle.pedido
+
+    if request.method == "GET":
+
+        serializer = DetallePedidoSerializer(detalle)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    if request.method in ["PUT", "PATCH"]:
+
+        if pedido.estado != "PENDIENTE":
+
+            return Response(
+                {
+                    "error": (
+                        "No puedes modificar detalles "
+                        "de un pedido que no está pendiente."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        serializer = DetallePedidoActualizarSerializer(
+            data=request.data,
+            partial=(request.method == "PATCH"
+                     )
+        )
+
+        if not serializer.is_valid():
+
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        nueva_cantidad = serializer.validated_data.get(
+            "cantidad",
+            detalle.cantidad
+        )
+
+        with transaction.atomic():
+
+            videojuego = Videojuego.objects.get(
+                pk=detalle.videojuego_id
+            )
+
+            diferencia = nueva_cantidad - detalle.cantidad
+
+            # Si se solicitan más unidades,
+            # comprobar y descontar el stock adicional.
+
+            if diferencia > 0:
+
+                if videojuego.stock < diferencia:
+
+                    return Response(
+                        {
+                            "error": (
+                                f"Stock insuficiente. "
+                                f"Disponible: {videojuego.stock}."
+                            )
+                        },
+                        status=status.HTTP_409_CONFLICT
+                    )
+
+                videojuego.stock -= diferencia
+
+            # Si se solicitan menos unidades,
+            # devolver la diferencia al inventario.
+
+            elif diferencia < 0:
+
+                videojuego.stock += abs(diferencia)
+
+            videojuego.save(
+                update_fields=["stock"]
+            )
+
+            detalle.cantidad = nueva_cantidad
+
+            detalle.subtotal = calcular_subtotal(
+                detalle.precio_unitario,
+                nueva_cantidad
+            )
+
+            detalle.save(
+                update_fields=["cantidad", "subtotal"]
+            )
+
+            recalcular_total(pedido)
+
+        return Response(
+            DetallePedidoSerializer(detalle).data,
+            status=status.HTTP_200_OK
+        )
+
+    if request.method == "DELETE":
+
+        if pedido.estado != "PENDIENTE":
+
+            return Response(
+                {
+                    "error": (
+                        "No puedes eliminar detalles "
+                        "de un pedido que no está pendiente."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        with transaction.atomic():
+
+            videojuego = Videojuego.objects.get(
+                pk=detalle.videojuego_id
+            )
+
+            videojuego.stock += detalle.cantidad
+
+            videojuego.save(
+                update_fields=["stock"]
+            )
+
+            detalle.delete()
+
+            recalcular_total(pedido)
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
