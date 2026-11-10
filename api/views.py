@@ -492,7 +492,7 @@ def pedido_detalle(request, pk):
 
 #Detalles de Pedido
 
- @api_view(["GET", "POST"])
+@api_view(["GET", "POST"])
 def detalle_pedido_lista(request):
 
     if request.method == "GET":
