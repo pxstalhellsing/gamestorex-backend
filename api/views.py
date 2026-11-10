@@ -362,7 +362,7 @@ def pedido_lista(request):
         status=status.HTTP_400_BAD_REQUEST
     )
 
-    @api_view(["GET", "PATCH", "DELETE"])
+@api_view(["GET", "PATCH", "DELETE"])
 def pedido_detalle(request, pk):
 
     pedido = obtener_objeto(Pedido, pk)
