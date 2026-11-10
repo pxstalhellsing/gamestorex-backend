@@ -282,3 +282,17 @@ class PedidoActualizarSerializer(serializers.Serializer):
 class DetallePedidoActualizarSerializer(serializers.Serializer):
 
     cantidad = serializers.IntegerField(min_value=1)
+
+# SERIALIZER PARA CREAR DETALLES DE PEDIDO
+
+class DetallePedidoCreateSerializer(serializers.Serializer):
+
+    pedido = ObjectIdRelatedField(
+        queryset=Pedido.objects.all()
+    )
+
+    videojuego = ObjectIdRelatedField(
+        queryset=Videojuego.objects.all()
+    )
+
+    cantidad = serializers.IntegerField(min_value=1)
