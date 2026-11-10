@@ -488,3 +488,114 @@ def pedido_detalle(request, pk):
         return Response(
             status=status.HTTP_204_NO_CONTENT
         )
+
+#Detalles de Pedido
+
+ @api_view(["GET", "POST"])
+def detalle_pedido_lista(request):
+
+    if request.method == "GET":
+
+        detalles = DetallePedido.objects.all()
+
+        pedido_id = request.query_params.get("pedido")
+
+        if pedido_id:
+
+            try:
+                pedido_object_id = ObjectId(pedido_id)
+
+            except (InvalidId, TypeError, ValueError):
+
+                return Response(
+                    {"error": "El ID del pedido no es válido."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            detalles = detalles.filter(
+                pedido_id=pedido_object_id
+            )
+
+        serializer = DetallePedidoSerializer(
+            detalles,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    serializer = DetallePedidoCreateSerializer(
+        data=request.data
+    )
+
+    if not serializer.is_valid():
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    pedido = serializer.validated_data["pedido"]
+
+    videojuego = serializer.validated_data["videojuego"]
+
+    cantidad = serializer.validated_data["cantidad"]
+
+    if pedido.estado != "PENDIENTE":
+
+        return Response(
+            {
+                "error": (
+                    "Solo puedes modificar pedidos pendientes."
+                )
+            },
+            status=status.HTTP_409_CONFLICT
+        )
+
+    with transaction.atomic():
+
+        videojuego = Videojuego.objects.get(
+            pk=videojuego.pk
+        )
+
+        if videojuego.stock < cantidad:
+
+            return Response(
+                {
+                    "error": (
+                        f"Stock insuficiente. "
+                        f"Disponible: {videojuego.stock}."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        precio = Decimal(str(videojuego.precio))
+
+        subtotal = calcular_subtotal(
+            precio,
+            cantidad
+        )
+
+        videojuego.stock -= cantidad
+
+        videojuego.save(
+            update_fields=["stock"]
+        )
+
+        detalle = DetallePedido.objects.create(
+            pedido=pedido,
+            videojuego=videojuego,
+            cantidad=cantidad,
+            precio_unitario=precio,
+            subtotal=subtotal
+        )
+
+        recalcular_total(pedido)
+
+    return Response(
+        DetallePedidoSerializer(detalle).data,
+        status=status.HTTP_201_CREATED
+    )
