@@ -43,6 +43,7 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
 class VideojuegoSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
+    categoria = ObjectIdRelatedField(queryset=Categoria.object.all())
     categoria_nombre = serializers.ReadOnlyField(source='categoria.nombre')
 
     class Meta:
